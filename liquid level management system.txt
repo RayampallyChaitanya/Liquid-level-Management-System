@@ -1,0 +1,109 @@
+//Libraires
+#include <stdlib.h>
+
+
+/*------------------------DHT SENSOR------------------------*/
+const int trigPin = 9;
+const int echoPin = 10;
+long duration;
+int distance;
+/*----------------------------------------------------------*/
+
+/*-----------------ESP8266 Serial WiFi Module---------------*/
+#define SSID "Creative"     // "SSID-WiFiname" 
+#define PASS "firmware"       // "password"
+#define IP "184.106.153.149"// thingspeak.com ip
+String msg = "GET /update?key=F30ZQEC9COTERHWM"; //change it with your key...
+/*-----------------------------------------------------------*/
+
+//Variables
+String dis;
+int error;
+
+void setup()
+{
+  pinMode(trigPin, OUTPUT); // Sets the trigPin as an Output
+  pinMode(echoPin, INPUT); // Sets the echoPin as an Input
+  Serial.begin(115200); // Starts the serial communication
+  
+  Serial.println("AT");
+  delay(10000);
+  Serial.print("connecting to wifi");
+  if(Serial.find("OK")){
+    Serial.print("entered into connectwifi");
+    connectWiFi();
+  }
+}
+
+void loop(){
+  start: //label 
+// Clears the trigPin
+digitalWrite(trigPin, LOW);
+delayMicroseconds(2);
+// Sets the trigPin on HIGH state for 10 micro seconds
+digitalWrite(trigPin, HIGH);
+delayMicroseconds(10);
+digitalWrite(trigPin, LOW);
+// Reads the echoPin, returns the sound wave travel time in microseconds
+duration = pulseIn(echoPin, HIGH);
+// Calculating the distance
+distance= duration*0.034/2;
+char buffer[10];
+dis =  dtostrf(distance, 4, 1, buffer); 
+// Prints the distance on the Serial Monitor
+Serial.print("Distance: "+distance);
+Serial.println("check");
+
+  updateTemp();
+  //Resend if transmission is not completed 
+  if (error==1){
+    goto start; //go to label "start"
+  }
+  
+  delay(2000); 
+}
+
+void updateTemp(){
+  String cmd = "AT+CIPSTART=\"TCP\",\"";
+  cmd += IP;
+  cmd += "\",80";
+  Serial.println(cmd);
+  delay(2000);
+  if(Serial.find("Error")){
+    return;
+  }
+  cmd = msg ;
+  cmd += "&field1=";   
+  cmd += dis;
+
+  cmd += "\r\n";
+  Serial.print("AT+CIPSEND=");
+ 
+  Serial.println(cmd.length());
+  if(Serial.find(">")){
+    Serial.print(cmd);
+  }
+  else{
+    Serial.println("AT+CIPCLOSE");
+    //Resend...
+    error=1;
+  }
+}
+
+ 
+boolean connectWiFi(){
+  Serial.println("AT+CWMODE=1");
+  delay(2000);
+  String cmd="AT+CWJAP=\"";
+  cmd+=SSID;
+  cmd+="\",\"";
+  cmd+=PASS;
+  cmd+="\"";
+  Serial.println(cmd);
+  delay(2000);
+  if(Serial.find("OK")){
+    return true;
+  }else{
+    return false;
+  }
+}
